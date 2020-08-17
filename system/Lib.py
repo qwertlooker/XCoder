@@ -654,8 +654,10 @@ def decodeSC(fileName, sheetimage, check_lowres=True):
 
                 spritedata[OffsetShape].regions.append(region)
 
-            reader.uint32
-            reader.byte
+            print(region.shape_points)
+            print(region.sheet_points)
+            print(reader.uint32)
+            print(reader.byte)
 
             OffsetShape += 1
 
@@ -783,6 +785,51 @@ def cut_sprites(spriteglobals, spritedata, sheetdata, sheetimage, xcod, folder_e
             .save(f'{folder_export}/{x}_{y}.png')
     print()
 
+
+def cut_sprites2(spriteglobals, spritedata, sheetdata, sheetimage, xcod, folder_export):
+    xcod.write(struct.pack('>H', spriteglobals.shape_count))
+
+    for x in range(spriteglobals.shape_count):
+        xcod.write(struct.pack('>H', spritedata[x].total_regions))
+
+        progressbar(string.cut_sprites % (x + 1, spriteglobals.shape_count), x, spriteglobals.shape_count)
+
+        for y in range(spritedata[x].total_regions):
+
+            region = spritedata[x].regions[y]
+
+            polygon = [region.sheet_points[z].pos for z in range(region.num_points)]
+            print(polygon)
+
+            xUnit = (region.right - region.left) / region.size[0]
+            yUnit = (region.top - region.bottom) / region.size[1]
+            for i in range(region.num_points):
+                x = (region.shape_points[i].pos[0] - region.left) / xUnit
+                y = (region.shape_points[i].pos[1] - region.bottom) / yUnit
+                print(x, y)
+            printf(region.size)
+            printf(region.right , region.left, region.top ,region.bottom)
+            xcod.write(
+                struct.pack('>2B2H', region.sheet_id, region.num_points, *sheetdata[region.sheet_id].pos) + b''.join(
+                    struct.pack('>2H', *i) for i in polygon) + struct.pack('?B', region.mirroring,
+                                                                           region.rotation // 90))
+
+            imMask = Image.new('L', sheetdata[region.sheet_id].pos, 0)
+            ImageDraw.Draw(imMask).polygon(polygon, fill=255)
+            bbox = imMask.getbbox()
+            if not bbox:
+                continue
+
+            regionsize = (bbox[2] - bbox[0], bbox[3] - bbox[1])
+            tmpRegion = Image.new('RGBA', regionsize, None)
+
+            tmpRegion.paste(sheetimage[region.sheet_id].crop(bbox), None, imMask.crop(bbox))
+            if region.mirroring:
+                tmpRegion = tmpRegion.transform(regionsize, Image.EXTENT, (regionsize[0], 0, 0, regionsize[1]))
+
+            tmpRegion.rotate(region.rotation, expand=True) \
+                .save(f'{folder_export}/{x}_{y}.png')
+    print()
 def place_sprites(xcod, folder):
     xcod = open(xcod, 'rb')
     files = os.listdir(folder)
